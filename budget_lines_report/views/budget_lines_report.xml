@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+<data>
+
+    <record id="view_budget_lines_report_graph" model="ir.ui.view">
+         <field name="name">view.budget.lines.report.graph</field>
+         <field name="model">budget.lines.report</field>
+         <field name="arch" type="xml">
+             <graph string="Budget lines" type="pivot" stacked="True">
+                 <field name="crossovered_budget_id" type="row"/>
+                 <field name="date_to" interval="month" type="col"/>
+                 <!--<field name="commitment_delay" type="measure"/>-->
+             </graph>
+         </field>
+    </record>
+
+    <record id="budget_lines_search" model="ir.ui.view">
+        <field name="name">budget.lines.search</field>
+        <field name="model">budget.lines.report</field>
+        <field name="arch" type="xml">
+            <search string="Budget lines">
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <!--<filter string="This Year" name="year" invisible="1" domain="[('date','&lt;=', time.strftime('%%Y-12-31')),('date','&gt;=',time.strftime('%%Y-01-01'))]"/>-->
+                <!--<filter name="Quotations" string="Quotations" domain="[('state','=','draft')]"/>-->
+                <!--<separator/>-->
+                <!--<filter string="Mis ventas" help="My Sales" domain="[('user_id','=',uid)]"/>-->
+                <!--<field name="partner_id"/>-->
+                <!--<group expand="0" string="Extended Filters">-->
+                    <!--<field name="categ_id" filter_domain="[('categ_id', 'child_of', self)]"/>-->
+                    <!--<field name="company_id" groups="base.group_multi_company"/>-->
+                <!--</group>-->
+                <group expand="1" string="Group By">
+                    <filter string="Crossovered budget" name="Crossovered budget" context="{'group_by':'crossovered_budget_id'}"/>
+                    <separator/>
+                    <filter string="Month ending" context="{'group_by':'date_to:month'}" help="Ordered date of the ending of the budget"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_budget_lines" model="ir.actions.act_window">
+        <field name="name">Budget lines</field>
+        <field name="res_model">budget.lines.report</field>
+        <field name="view_type">form</field>
+        <field name="view_mode">graph</field>
+        <field name="search_view_id" ref="budget_lines_search"/>
+        <field name="view_id" ref="view_budget_lines_report_graph"/>
+        <!--<field name="context">{'search_default_Sales':1}</field>-->
+    </record>
+
+    <menuitem action="action_budget_lines" id="menu_budget_lines_report" parent="base.next_id_64" sequence="12"/>
+
+</data>
+</openerp>
