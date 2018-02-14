@@ -1,19 +1,6 @@
 # -*- coding: utf-8 -*-
-from datetime import date, datetime
-from openerp.tools import drop_view_if_exists, ustr, DEFAULT_SERVER_DATE_FORMAT
+from openerp.tools import drop_view_if_exists, ustr
 from openerp.osv import fields, osv
-
-# ---------------------------------------------------------
-# Utils
-# ---------------------------------------------------------
-
-
-def strToDate(dt):
-    return date(int(dt[0:4]), int(dt[5:7]), int(dt[8:10]))
-
-
-def strToDatetime(strdate):
-    return datetime.strptime(strdate, DEFAULT_SERVER_DATE_FORMAT)
 
 
 class BudgetLinesReport(osv.osv):
@@ -158,6 +145,7 @@ class BudgetLinesReport(osv.osv):
                         as theoritical_amount,
                         /*  VERY SLOW LOADING PROBLEM */
                         /* Practical amount */
+                        /*
                         SUM((SELECT amount
                                 FROM account_analytic_line
                                 WHERE account_id=l.analytic_account_id
@@ -171,6 +159,7 @@ class BudgetLinesReport(osv.osv):
                                     )
                                     ))
                         as practical_amount,
+                        */
                         /* *** */
                         l.general_budget_id as general_budget_id,
                         sum(l.planned_amount) as planned_amount
@@ -193,6 +182,7 @@ class BudgetLinesReport(osv.osv):
                     account_analytic_account a on (l.analytic_account_id=a.id)
                     /* Beginning of the join added before the
                        SLOW loading problem */
+                       /*
                     LEFT JOIN
                         account_account cuenta on (
                         /* Find related accounts */
@@ -202,6 +192,7 @@ class BudgetLinesReport(osv.osv):
                                         WHERE budget_id=l.general_budget_id
                         )
                         )
+                        */
                     left join
                     account_budget_post p on (l.general_budget_id=p.id)
         """
