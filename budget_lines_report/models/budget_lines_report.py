@@ -119,8 +119,7 @@ class BudgetLinesReport(osv.osv):
                        l.date_from as date_form,
                        l.analytic_account_id as analytic_account_id,
                        /* Compute the theoretical amount for the elapsed time */
-                       sum(
-                       (
+                       sum((
                         SELECT
                             CASE WHEN (l.paid_date IS NOT NULL
                                         AND l.paid_date >= l.date_to)
@@ -136,31 +135,37 @@ class BudgetLinesReport(osv.osv):
                                             (now()::date - l.date_from)::real /
                                             /* this is not preventing zeroes! */
                                             (l.date_to - l.date_from)::real
-                                                    )  * l.planned_amount
-                                        ELSE l.planned_amount END
+                                        )  * l.planned_amount
+                                        ELSE l.planned_amount
+                                        END
                                 )
                             END
-                                )
-                                )
+                        ))
                         as theoritical_amount,
                         /*  VERY SLOW LOADING PROBLEM */
                         /* Practical amount */
-                        /*
-                        SUM((SELECT amount
-                                FROM account_analytic_line
-                                WHERE account_id=l.analytic_account_id
-                                AND (date between l.date_from AND l.date_to)
-                                AND general_account_id=ANY(
-                                    /* query to get child accounts */
-                                    SELECT id FROM account_account
-                                        WHERE parent_left > cuenta.parent_left
-                                        AND parent_right < cuenta.parent_right
-                                    /* TODO: get consolidated accounts */
+                        SUM((
+                        SELECT amount
+                            FROM account_analytic_line
+                            WHERE account_id=l.analytic_account_id
+                            AND (date between l.date_from AND l.date_to)
+                            AND general_account_id=ANY(
+                                WITH cuenta AS (
+                                    SELECT * FROM account_account
+                                    WHERE id=ANY(
+                                        SELECT account_id
+                                        FROM account_budget_rel
+                                        WHERE budget_id=l.general_budget_id
                                     )
-                                    ))
+                                )
+                                SELECT id FROM account_account
+                                /* query to get child accounts */
+                                    WHERE parent_left >= cuenta.parent_left
+                                    AND parent_right <= cuenta.parent_right
+                                /* TODO: get consolidated accounts */
+                            )
+                        ))
                         as practical_amount,
-                        */
-                        /* *** */
                         l.general_budget_id as general_budget_id,
                         sum(l.planned_amount) as planned_amount
         """
@@ -178,21 +183,15 @@ class BudgetLinesReport(osv.osv):
         crossovered_budget_lines l
                 join crossovered_budget c on (l.crossovered_budget_id=c.id)
                 /* Please review this! */
-                left join
-                    account_analytic_account a on (l.analytic_account_id=a.id)
-                    /* Beginning of the join added before the
-                       SLOW loading problem */
-                       /*
-                    LEFT JOIN
-                        account_account cuenta on (
-                        /* Find related accounts */
-                        cuenta.id=ANY(
-                                        SELECT account_id
-                                        FROM account_budget_rel
-                                        WHERE budget_id=l.general_budget_id
-                        )
-                        )
-                        */
+                    /* Why do we need the analytic account table ?
+                    left join
+                        account_analytic_account a on (l.analytic_account_id=a.id)
+                    */
+                /* Beginning of the join added before the
+                    SLOW loading problem */
+                    /*
+                LEFT JOIN
+                    */
                     left join
                     account_budget_post p on (l.general_budget_id=p.id)
         """
