@@ -14,48 +14,6 @@ class BudgetLinesReport(osv.osv):
     # model, but will need refactoring to get rid of the odoo ORM, which is
     # the origin of the problem
 
-    def _prac_amt(self, cr, uid, ids, context=None):
-        res = {}
-        result = 0.0
-        if context is None:
-            context = {}
-        account_obj = self.pool.get('account.account')
-        for line in self.browse(cr, uid, ids, context=context):
-            acc_ids = [x.id for x in line.general_budget_id.account_ids]
-            if not acc_ids:
-                raise osv.except_osv(
-                    _('Error!'),
-                    _("The Budget '%s' has no accounts!") % ustr(
-                        line.general_budget_id.name))
-            acc_ids = account_obj._get_children_and_consol(
-                cr, uid, acc_ids, context=context)
-            date_to = line.date_to
-            date_from = line.date_from
-            if line.analytic_account_id.id:
-                cr.execute(
-                    """
-                    SELECT SUM(amount)
-                    FROM account_analytic_line
-                    WHERE account_id=%s
-                    AND (date
-                       between to_date(%s,'yyyy-mm-dd')
-                    AND to_date(%s,'yyyy-mm-dd')) AND
-                       general_account_id=ANY(%s)
-                    """,
-                    (line.analytic_account_id.id, date_from, date_to, acc_ids,))
-                result = cr.fetchone()[0]
-            if result is None:
-                result = 0.00
-            res[line.id] = result
-        return res
-
-    def _prac(self, cr, uid, ids, name, args, context=None):
-        res = {}
-        for line in self.browse(cr, uid, ids, context=context):
-            res[line.id] = self._prac_amt(
-                cr, uid, [line.id], context=context)[line.id]
-        return res
-
     def _perc(self, cr, uid, ids, name, args, context=None):
         res = {}
         for line in self.browse(cr, uid, ids, context=context):
@@ -85,7 +43,7 @@ class BudgetLinesReport(osv.osv):
         ),
         'date_from': fields.date('Start Date', readonly=True),
         'date_to': fields.date('End Date', readonly=True),
-        'paid_date': fields.date('Paid Date', readonly=True),
+        # 'paid_date': fields.date('Paid Date', readonly=True),
         'planned_amount': fields.float('Planned Amount', readonly=True,),
         'theoritical_amount': fields.float('Theoretical Amount', readonly=True),
         'practical_amount': fields.float(
@@ -111,7 +69,6 @@ class BudgetLinesReport(osv.osv):
         """
         Helper method: Sql select to get all the data for this report.
         """
-
         select_str = """
                 SELECT min(l.id) as id,
                        l.crossovered_budget_id as crossovered_budget_id,
@@ -142,29 +99,8 @@ class BudgetLinesReport(osv.osv):
                             END
                         ))
                         as theoritical_amount,
-                        /*  VERY SLOW LOADING PROBLEM */
                         /* Practical amount */
-                        SUM((
-                        SELECT amount
-                            FROM account_analytic_line
-                            WHERE account_id=l.analytic_account_id
-                            AND (date between l.date_from AND l.date_to)
-                            AND general_account_id=ANY(
-                                WITH cuenta AS (
-                                    SELECT * FROM account_account
-                                    WHERE id=ANY(
-                                        SELECT account_id
-                                        FROM account_budget_rel
-                                        WHERE budget_id=l.general_budget_id
-                                    )
-                                )
-                                SELECT id FROM account_account
-                                /* query to get child accounts */
-                                    WHERE parent_left >= cuenta.parent_left
-                                    AND parent_right <= cuenta.parent_right
-                                /* TODO: get consolidated accounts */
-                            )
-                        ))
+                        SUM(analine.amount)
                         as practical_amount,
                         l.general_budget_id as general_budget_id,
                         sum(l.planned_amount) as planned_amount
@@ -179,21 +115,62 @@ class BudgetLinesReport(osv.osv):
         a: account_analytic_account
         p: account_budget_post, the general budget
         """
+        commented_str = """
+                        /*
+                        (
+                        SELECT amount
+                        FROM
+                            account_analytic_line
+                            */
+                        /* Just get everything and we'll refine later *
+                            WHERE account_id=l.analytic_account_id
+                            AND (date between l.date_from AND l.date_to)
+                            AND general_account_id=ANY(
+                                SELECT acc.id FROM account_account acc
+                                INNER JOIN
+                                        account_budget_rel rel
+                                    ON  rel.account_id = acc.id
+                                    INNER JOIN account_budget_post bud
+                                    ON rel.budget_id = bud.id
+                                    WHERE bud.id=l.general_budget_id
+                                                                /* query to get child accounts */
+                                                                /*
+                                                                SELECT id FROM account_account
+                                                                    WHERE parent_left >= cuenta.parent_left
+                                                                    AND parent_right <= cuenta.parent_right
+                                                                */
+                                /* TODO: get consolidated accounts */
+                        *****/
+                        """
+
         from_str = """
         crossovered_budget_lines l
                 join crossovered_budget c on (l.crossovered_budget_id=c.id)
-                /* Please review this! */
-                    /* Why do we need the analytic account table ?
-                    left join
-                        account_analytic_account a on (l.analytic_account_id=a.id)
-                    */
-                /* Beginning of the join added before the
-                    SLOW loading problem */
-                    /*
-                LEFT JOIN
-                    */
                     left join
                     account_budget_post p on (l.general_budget_id=p.id)
+                    inner join
+                        account_analytic_line analine
+                        on (
+                            analine.account_id=l.analytic_account_id
+                            AND (analine.date between l.date_from AND l.date_to)
+                            AND analine.general_account_id=ANY(
+                                SELECT acc.id FROM account_account acc
+                                INNER JOIN
+                                        account_budget_rel rel
+                                    ON  rel.account_id = acc.id
+                                    INNER JOIN account_budget_post bud
+                                    ON rel.budget_id = bud.id
+                                    WHERE bud.id=l.general_budget_id
+                                                                /* query to get child accounts */
+                                                                /*
+                                                                SELECT id FROM account_account
+                                                                    WHERE parent_left >= cuenta.parent_left
+                                                                    AND parent_right <= cuenta.parent_right
+                                                                */
+                                /* TODO: get consolidated accounts */
+                            )
+                        )
+
         """
         return from_str
 
