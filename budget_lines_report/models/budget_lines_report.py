@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from openerp.tools import drop_view_if_exists, ustr
+from openerp.tools import drop_view_if_exists
 from openerp.osv import fields, osv
 
 
@@ -60,7 +60,6 @@ class BudgetLinesReport(osv.osv):
     }
     _order = 'crossovered_budget_id desc'
 
-
     def _select(self):
         """
         Helper method: Sql select to get all the data for this report.
@@ -96,9 +95,7 @@ class BudgetLinesReport(osv.osv):
                         )) / count(l.id)
                         as theoritical_amount,
                         sum(l.planned_amount) / count(l.id) as planned_amount,
-                        /* Practical amount */
-                        SUM(analine.amount)
-                        as practical_amount,
+                        SUM(analine.amount) as practical_amount,
                         l.general_budget_id as general_budget_id
         """
         return select_str
@@ -115,7 +112,9 @@ class BudgetLinesReport(osv.osv):
         crossovered_budget_lines l
                 join crossovered_budget c on (l.crossovered_budget_id=c.id)
                     LEFT JOIN
-                        account_analytic_account a on (l.analytic_account_id=a.id OR l.analytic_account_id=a.parent_id)
+                        account_analytic_account a on (
+                            l.analytic_account_id=a.id
+                            OR l.analytic_account_id=a.parent_id)
                     left join
                     account_budget_post p on (l.general_budget_id=p.id)
                     LEFT JOIN
@@ -130,12 +129,12 @@ class BudgetLinesReport(osv.osv):
                                     INNER JOIN account_budget_post bud
                                     ON rel.budget_id = bud.id
                                     WHERE bud.id=l.general_budget_id
-                                            /* TODO: query to get child accounts */
-                                            /*
-                                            SELECT id FROM account_account
-                                                WHERE parent_left >= cuenta.parent_left
-                                                AND parent_right <= cuenta.parent_right
-                                            */
+                                    /* TODO: query to get child accounts */
+                                    /*
+                                    SELECT id FROM account_account
+                                        WHERE parent_left >= cuenta.parent_left
+                                        AND parent_right <= cuenta.parent_right
+                                    */
                                 /* TODO: get consolidated accounts */
                             )
                         )
