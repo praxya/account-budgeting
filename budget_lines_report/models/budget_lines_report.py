@@ -43,14 +43,15 @@ class BudgetLinesReport(osv.osv):
         ),
         'date_from': fields.date('Start Date', readonly=True),
         'date_to': fields.date('End Date', readonly=True),
-        # 'paid_date': fields.date('Paid Date', readonly=True),
         'planned_amount': fields.float('Planned Amount', readonly=True,),
         'theoritical_amount': fields.float('Theoretical Amount', readonly=True),
         'practical_amount': fields.float(
             'Practical Amount',
             readonly=True
         ),
-        # Function fields
+        # TODO: finish this fields
+        # TODO: paid_date is a field in the budget line but is not used yet
+        # 'paid_date': fields.date('Paid Date', readonly=True),
         'percentage': fields.function(
             _perc,
             string='Percentage',
@@ -59,11 +60,6 @@ class BudgetLinesReport(osv.osv):
     }
     _order = 'crossovered_budget_id desc'
 
-    # obfuscated variables in the examples below:
-    # r: res_currency_rate
-    # l: sale_order_line
-    # s: sale_order
-    # t: product_template
 
     def _select(self):
         """
@@ -115,34 +111,6 @@ class BudgetLinesReport(osv.osv):
         a: account_analytic_account
         p: account_budget_post, the general budget
         """
-        commented_str = """
-                        /*
-                        (
-                        SELECT amount
-                        FROM
-                            account_analytic_line
-                            */
-                        /* Just get everything and we'll refine later *
-                            WHERE account_id=l.analytic_account_id
-                            AND (date between l.date_from AND l.date_to)
-                            AND general_account_id=ANY(
-                                SELECT acc.id FROM account_account acc
-                                INNER JOIN
-                                        account_budget_rel rel
-                                    ON  rel.account_id = acc.id
-                                    INNER JOIN account_budget_post bud
-                                    ON rel.budget_id = bud.id
-                                    WHERE bud.id=l.general_budget_id
-                                                                /* query to get child accounts */
-                                                                /*
-                                                                SELECT id FROM account_account
-                                                                    WHERE parent_left >= cuenta.parent_left
-                                                                    AND parent_right <= cuenta.parent_right
-                                                                */
-                                /* TODO: get consolidated accounts */
-                        *****/
-                        """
-
         from_str = """
         crossovered_budget_lines l
                 join crossovered_budget c on (l.crossovered_budget_id=c.id)
@@ -163,11 +131,11 @@ class BudgetLinesReport(osv.osv):
                                     ON rel.budget_id = bud.id
                                     WHERE bud.id=l.general_budget_id
                                             /* TODO: query to get child accounts */
-                                                                /*
-                                                                SELECT id FROM account_account
-                                                                    WHERE parent_left >= cuenta.parent_left
-                                                                    AND parent_right <= cuenta.parent_right
-                                                                */
+                                            /*
+                                            SELECT id FROM account_account
+                                                WHERE parent_left >= cuenta.parent_left
+                                                AND parent_right <= cuenta.parent_right
+                                            */
                                 /* TODO: get consolidated accounts */
                             )
                         )
