@@ -97,13 +97,13 @@ class BudgetLinesReport(osv.osv):
                                         END
                                 )
                             END
-                        ))
+                        )) / count(l.id)
                         as theoritical_amount,
+                        sum(l.planned_amount) / count(l.id) as planned_amount,
                         /* Practical amount */
                         SUM(analine.amount)
                         as practical_amount,
-                        l.general_budget_id as general_budget_id,
-                        sum(l.planned_amount) as planned_amount
+                        l.general_budget_id as general_budget_id
         """
         return select_str
 
@@ -146,22 +146,23 @@ class BudgetLinesReport(osv.osv):
         from_str = """
         crossovered_budget_lines l
                 join crossovered_budget c on (l.crossovered_budget_id=c.id)
+                    LEFT JOIN
+                        account_analytic_account a on (l.analytic_account_id=a.id OR l.analytic_account_id=a.parent_id)
                     left join
                     account_budget_post p on (l.general_budget_id=p.id)
-                    inner join
+                    LEFT JOIN
                         account_analytic_line analine
-                        on (
-                            analine.account_id=l.analytic_account_id
+                        on (analine.account_id=a.id
                             AND (analine.date between l.date_from AND l.date_to)
                             AND analine.general_account_id=ANY(
-                                SELECT acc.id FROM account_account acc
+                                SELECT DISTINCT acc.id FROM account_account acc
                                 INNER JOIN
                                         account_budget_rel rel
                                     ON  rel.account_id = acc.id
                                     INNER JOIN account_budget_post bud
                                     ON rel.budget_id = bud.id
                                     WHERE bud.id=l.general_budget_id
-                                                                /* query to get child accounts */
+                                            /* TODO: query to get child accounts */
                                                                 /*
                                                                 SELECT id FROM account_account
                                                                     WHERE parent_left >= cuenta.parent_left
